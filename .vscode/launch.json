@@ -1,0 +1,52 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "render2texture",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/render2texture/render2texture.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/render2texture",
+            "environment": [],
+            "externalConsole": true
+        },
+        {
+            "name": "normal_mapping",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/normal_mapping/normal_mapping.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/normal_mapping",
+            "environment": [],
+            "externalConsole": true
+        },
+        {
+            "name": "basic_shading",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/basic_shading/basic_shading.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/basic_shading",
+            "environment": [],
+            "externalConsole": true
+        },
+        {
+            "name": "fluid",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/fluid/fluid.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/fluid",
+            "environment": [],
+            "externalConsole": true
+        }
+    ]
+}
