@@ -1,11 +1,11 @@
-#version 330 core
-
-in vec2 UV;
+#version 410 core
 
 layout (location = 0) out vec3 color;
+
+in vec2 uv;
 
 uniform sampler2D renderedTexture;
 
 void main(){
-	color = texture(renderedTexture, UV).xyz;
+    color = texture(renderedTexture, uv).xyz;
 }
