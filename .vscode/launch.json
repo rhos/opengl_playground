@@ -47,6 +47,17 @@
             "cwd": "${workspaceFolder}/fluid",
             "environment": [],
             "externalConsole": true
+        },
+        {
+            "name": "fluid2",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/fluid2/fluid2.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/fluid2",
+            "environment": [],
+            "externalConsole": true
         }
     ]
 }

@@ -18,8 +18,8 @@
 
 const int gWidth = 1024;
 const int gHeight = 768;
-const int fluidGrid = 200;
-const int dyeGrid = 600;
+const int fluidGrid = 128;
+const int dyeGrid = 512;
 
 GLFWwindow* initWindow(int width, int height)
 {
@@ -72,10 +72,10 @@ void prepareQuad()
 {
     static const GLfloat quadData[] =
         {
-            1.0f, -1.0f,
             -1.0f, -1.0f,
-            -1.0f, 1.0f,
+            1.0f, -1.0f,
             1.0f, 1.0f,
+            -1.0f, 1.0f,
 
             0.0f, 0.0f,
             1.0f, 0.0f,
@@ -112,12 +112,12 @@ struct Target
     GLuint fbo;
     GLuint texture;
 
-    Target(int width, int height)
+    Target(int width, int height, GLuint internal, GLuint format, GLuint filtering)
     {
-        texture = createTexture(width, height);
+        texture = createTexture(width, height, internal, format, filtering);
         fbo = createFbo(width, height, texture);
 
-        textureTemp = createTexture(width, height);
+        textureTemp = createTexture(width, height, internal, format, filtering);
         fboTemp = createFbo(width, height, textureTemp);
     }
 
@@ -139,19 +139,19 @@ struct Target
         return fboTemp;
     }
 
-private:
     GLuint fboTemp;
     GLuint textureTemp;
 
-    GLuint createTexture(int width, int height)
+private:
+    GLuint createTexture(int width, int height, GLuint format, GLuint internalFormat, GLuint filtering)
     {
         GLuint textureID;
         glGenTextures(1, &textureID);
         glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, 0);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -183,6 +183,11 @@ struct Shader
     void setUniform(const std::string& name, glm::vec2 vec)
     {
         glUniform2f(uniforms[name], vec.x, vec.y);
+    }
+
+    void setUniform(const std::string& name, glm::vec3 vec)
+    {
+        glUniform3f(uniforms[name], vec.x, vec.y, vec.z);
     }
 
     void setUniform(const std::string& name, GLuint val)
@@ -227,8 +232,8 @@ struct Fluid
     int dHeight;
 
     float dxscale = 30.0f;
-    float quantityDissipation = 0.97f;
-    float velocityDissipation = 0.98f;
+    float quantityDissipation = 1.0f;
+    float velocityDissipation = 0.97f;
     float pressureDissipation = 0.8f;
     int jacobiIterations = 20;
 
@@ -246,19 +251,24 @@ struct Fluid
     Shader pressureGradientShader;
     Shader multiplyShader;
 
+    Shader disturbShader;
+
+    GLuint bg;
+
     Fluid(int fWidth, int fHeight, int dWidth, int dHeight) : fWidth(fWidth), fHeight(fHeight), dWidth(dWidth), dHeight(dHeight),
-                                                              divergenceTarget(fWidth, fHeight),
-                                                              pressureTarget(fWidth, fHeight),
-                                                              velocityTarget(fWidth, fHeight),
-                                                              vorticityTarget(fWidth, fHeight),
-                                                              quantityTarget(dWidth, dWidth),
+                                                              divergenceTarget(fWidth, fHeight, GL_R16F, GL_R16, GL_NEAREST),
+                                                              pressureTarget(fWidth, fHeight, GL_R16F, GL_R16, GL_NEAREST),
+                                                              velocityTarget(fWidth, fHeight, GL_RG16F, GL_RG16, GL_LINEAR),
+                                                              vorticityTarget(fWidth, fHeight, GL_R16F, GL_R16, GL_NEAREST),
+                                                              quantityTarget(dWidth, dWidth, GL_RGBA16F, GL_RGBA, GL_LINEAR),
                                                               advectionShader("shaders/vector.vs", "shaders/advection.fs"),
                                                               divergenceShader("shaders/field.vs", "shaders/divergence.fs"),
                                                               vorticityShader("shaders/field.vs", "shaders/vorticity.fs"),
                                                               vorticityForceShader("shaders/field.vs", "shaders/vorticityForce.fs"),
                                                               pressureShader("shaders/field.vs", "shaders/pressure.fs"),
                                                               pressureGradientShader("shaders/field.vs", "shaders/pressureGradient.fs"),
-                                                              multiplyShader("shaders/vector.vs", "shaders/multiplyShader.fs")
+                                                              multiplyShader("shaders/vector.vs", "shaders/multiply.fs"),
+                                                              disturbShader("shaders/vector.vs", "shaders/disturb.fs")
     {
     }
     void process(double dt)
@@ -267,68 +277,96 @@ struct Fluid
         pipeline(dt);
     }
 
+    void disturb(float x, float y, float dx, float dy, glm::vec3 color)
+    {
+        glDisable(GL_BLEND);
+        glViewport(0, 0, fWidth, fHeight);
+        glm::vec2 st(1.0 / fWidth, 1.0 / fHeight);
+
+        glUseProgram(disturbShader.id);
+        disturbShader.setUniform("quantity", velocityTarget.bind(0));
+        disturbShader.setUniform("aspect", (float)gWidth / gHeight);
+        disturbShader.setUniform("position", glm::vec2(x, y));
+        disturbShader.setUniform("dir", glm::vec3(dx, dy, 1));
+        disturbShader.setUniform("radius", 0.5f / 100);
+        stage(velocityTarget);
+
+        glViewport(0, 0, dWidth, dHeight);
+        glm::vec2 dst(1.0 / dWidth, 1.0 / dHeight);
+
+        glUseProgram(disturbShader.id);
+        disturbShader.setUniform("quantity", quantityTarget.bind(0));
+        disturbShader.setUniform("dir", color);
+        stage(quantityTarget);
+    }
+
 private:
     void pipeline(double dt)
     {
         glViewport(0, 0, fWidth, fHeight);
+        glm::vec2 st(1.0f / fWidth, 1.0f / fHeight);
 
-        glm::vec2 st(1.0 / fWidth, 1.0 / fHeight);
+        // glUseProgram(vorticityShader.id);
+        // vorticityShader.setUniform("st", st);
+        // vorticityShader.setUniform("velocity", velocityTarget.bind(0));
+        // stage(vorticityTarget);
 
-        vorticityShader.setUniform("st", st);
-        vorticityShader.setUniform("velocity", velocityTarget.bind(0));
-        stage(vorticityTarget, vorticityShader);
+        // glUseProgram(vorticityForceShader.id);
+        // vorticityForceShader.setUniform("st", st);
+        // vorticityForceShader.setUniform("velocity", velocityTarget.bind(0));
+        // vorticityForceShader.setUniform("vorticity", vorticityTarget.bind(1));
+        // vorticityForceShader.setUniform("dxscale", dxscale);
+        // vorticityForceShader.setUniform("dt", dt);
+        // stage(velocityTarget);
 
-        vorticityForceShader.setUniform("st", st);
-        vorticityForceShader.setUniform("velocity", velocityTarget.bind(0));
-        vorticityForceShader.setUniform("vorticity", vorticityTarget.bind(1));
-        vorticityForceShader.setUniform("dxscale", dxscale);
-        vorticityForceShader.setUniform("dt", dt);
-        stage(velocityTarget, vorticityForceShader);
-
+        glUseProgram(divergenceShader.id);
         divergenceShader.setUniform("st", st);
         divergenceShader.setUniform("velocity", velocityTarget.bind(0));
-        stage(divergenceTarget, divergenceShader);
+        stage(divergenceTarget);
 
-        multiplyShader.setUniform("val", pressureDissipation);
-        multiplyShader.setUniform("field", pressureTarget.bind(0));
-        stage(pressureTarget, multiplyShader);
+        // glUseProgram(multiplyShader.id);
+        // multiplyShader.setUniform("val", pressureDissipation);
+        // multiplyShader.setUniform("field", pressureTarget.bind(0));
+        // stage(pressureTarget);
 
+        glUseProgram(pressureShader.id);
         pressureShader.setUniform("st", st);
         pressureShader.setUniform("divergence", divergenceTarget.bind(0));
         for (int i = 0; i < jacobiIterations; ++i)
         {
             pressureShader.setUniform("pressure", pressureTarget.bind(1));
-            stage(pressureTarget, pressureShader);
+            stage(pressureTarget);
         }
 
+        glUseProgram(pressureGradientShader.id);
         pressureGradientShader.setUniform("st", st);
         pressureGradientShader.setUniform("pressure", pressureTarget.bind(0));
         pressureGradientShader.setUniform("velocity", velocityTarget.bind(1));
-        stage(velocityTarget, pressureGradientShader);
+        stage(velocityTarget);
 
+        glUseProgram(advectionShader.id);
         advectionShader.setUniform("st", st);
-        auto velocityID = velocityTarget.bind(0);
-        advectionShader.setUniform("velocity", velocityID);
-        advectionShader.setUniform("quantity", velocityID);
+        velocityTarget.bind(0);
+        advectionShader.setUniform("velocity", (GLuint)0);
+        advectionShader.setUniform("quantity", (GLuint)0);
         advectionShader.setUniform("dt", dt);
         advectionShader.setUniform("dissipation", velocityDissipation);
-        stage(velocityTarget, advectionShader);
-
+        stage(velocityTarget);
 
         glViewport(0, 0, dWidth, dHeight);
-
         glm::vec2 dst(1.0 / dWidth, 1.0 / dHeight);
+
+        glUseProgram(advectionShader.id);
         advectionShader.setUniform("st", dst);
         advectionShader.setUniform("velocity", velocityTarget.bind(0));
         advectionShader.setUniform("quantity", quantityTarget.bind(1));
         advectionShader.setUniform("dt", dt);
         advectionShader.setUniform("dissipation", quantityDissipation);
-        stage(quantityTarget, advectionShader);
+        stage(quantityTarget);
     }
 
-    void stage(Target& target, Shader& shader)
+    void stage(Target& target)
     {
-        glUseProgram(shader.id);
         glBindFramebuffer(GL_FRAMEBUFFER, target.targetFbo());
         drawQuad();
         target.swap();
@@ -349,26 +387,39 @@ int main(void)
     GLuint screenTextureID = glGetUniformLocation(screenProgramID, "renderedTexture");
 
     Fluid fluid(fluidGrid, fluidGrid, dyeGrid, dyeGrid);
-
-    auto last = glfwGetTime();
+    fluid.disturb(0.5f, 0.5f, 0, 400, glm::vec3(1.0, 1.0, 0));
+    fluid.disturb(0.2f, 0.3f, 200, -400, glm::vec3(1.0, 1.0, 0));
+    fluid.disturb(0.7f, 0.8f, 300, 0, glm::vec3(1.0, 1.0, 0));
+    fluid.disturb(0.6f, 0.8f, 350, 0, glm::vec3(1.0, 1.0, 0));
+    fluid.disturb(0.5f, 0.8f, 300, 20, glm::vec3(1.0, 1.0, 0));
+    auto lastTime = glfwGetTime();
+    int nbFrames = 0;
     do
     {
-        auto current = glfwGetTime();
-        fluid.process(current - last);
-        last = current;
+        auto currentTime = glfwGetTime();
+        nbFrames++;
+        if (currentTime - lastTime >= 1.0)
+        { // If last prinf() was more than 1 sec ago
+            // printf and reset timer
+            printf("%f ms/frame\n", 1000.0 / double(nbFrames));
+            nbFrames = 0;
+            lastTime += 1.0;
+        }
+
+        fluid.process(0.0016);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glDisable(GL_CULL_FACE);
 
         glUseProgram(screenProgramID);
-        
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fluid.quantityTarget.texture);
         glUniform1i(screenTextureID, 0);
         drawQuad();
 
+        glfwSwapInterval(1);
         glfwSwapBuffers(window);
         glfwPollEvents();
 
