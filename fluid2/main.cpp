@@ -94,7 +94,7 @@ const std::string clearShader = R"(
 
 const std::string splatShader = R"(
     #version 410
-    layout (location = 0) out vec4 color2;
+    layout (location = 0) out vec4 color_out;
     precision highp float;
     precision highp sampler2D;
     in vec2 vUv;
@@ -108,7 +108,7 @@ const std::string splatShader = R"(
         p.x *= aspectRatio;
         vec3 splat = exp(-dot(p, p) / radius) * color;
         vec3 base = texture(uTarget, vUv).xyz;
-        color2 = vec4(base + splat, 1.0);
+        color_out = vec4(base + splat, 1.0);
     }
 )";
 
@@ -153,6 +153,7 @@ const std::string divergenceShader = R"(
         if (vB.y < 0.0) { B = -C.y; }
         float div = 0.5 * (R - L + T - B);
         color = vec4(div, 0.0, 0.0, 1.0);
+        //color = vec4(vUv, 0, 1);
     }
 )";
 
@@ -275,7 +276,9 @@ const std::string displayShader = R"(
         vec3 C = texture(uTexture, vUv).rgb;
         float a = max(C.r, max(C.g, C.b));
         color = vec4(C, a);
+        //color = vec4(C, 1);
         //color = vec4(vUv, 0, 1);
+        //color = vec4(C, 0, 0, 1);
     }
 )";
 
@@ -425,7 +428,7 @@ FBO createFBO(int w, int h, GLuint internalFormat, GLuint format, GLuint type, G
     glGenFramebuffers(1, &bufferID);
     glBindFramebuffer(GL_FRAMEBUFFER, bufferID);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureID, 0);
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, w, h);
     glClear(GL_COLOR_BUFFER_BIT);
 
     return FBO(textureID, bufferID, w, h);
@@ -453,83 +456,78 @@ void initFramebuffers()
     dyeHeight = adyeHeight;
 
     auto texType = GL_HALF_FLOAT;
-    auto rgba = GL_RGBA;
-    auto rg = GL_RG;
-    auto r = GL_R;
-    auto filtering = GL_LINEAR;
 
-    density = createDoubleFBO(dyeWidth, dyeHeight, GL_RGBA16F, rgba, texType, filtering);
-    velocity = createDoubleFBO(simWidth, simHeight, GL_RG16F, rg, texType, filtering);
-    divergence = createFBO(simWidth, simHeight, GL_R16F, r, texType, GL_NEAREST);
-    curl = createFBO(simWidth, simHeight, GL_R16F, r, texType, GL_NEAREST);
-    pressure = createDoubleFBO(simWidth, simHeight, GL_R16F, r, texType, GL_NEAREST);
+    density = createDoubleFBO(dyeWidth, dyeHeight, GL_RGBA16F, GL_RGBA, texType, GL_LINEAR);
+    velocity = createDoubleFBO(simWidth, simHeight, GL_RG16F, GL_RG, texType, GL_LINEAR);
+    divergence = createFBO(simWidth, simHeight, GL_RG16F, GL_RG, texType, GL_NEAREST);
+    curl = createFBO(simWidth, simHeight, GL_RG16F, GL_RG, texType, GL_NEAREST);
+    pressure = createDoubleFBO(simWidth, simHeight, GL_RG16F, GL_RG, texType, GL_NEAREST);
 }
 
-// void step(float dt)
-// {
-//     glDisable(GL_BLEND);
-//     glViewport(0, 0, simWidth, simHeight);
+void step(float dt)
+{
+    glDisable(GL_BLEND);
+    glViewport(0, 0, simWidth, simHeight);
 
-//     // curlProgram.bind();
-//     // glUniform2f(curlProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-//     // glUniform1i(curlProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-//     // blit(curl.bufferID);
+    curlProgram.bind();
+    glUniform2f(curlProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    glUniform1i(curlProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    blit(curl.bufferID);
 
-//     // vorticityProgram.bind();
-//     // glUniform2f(vorticityProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-//     // glUniform1i(vorticityProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-//     // glUniform1i(vorticityProgram.uniforms["uCurl"], curl.attach(1));
-//     // glUniform1f(vorticityProgram.uniforms["curl"], config.CURL);
-//     // glUniform1f(vorticityProgram.uniforms["dt"], dt);
-//     // blit(velocity.getWrite().bufferID);
-//     // velocity.swap();
+    vorticityProgram.bind();
+    glUniform2f(vorticityProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    glUniform1i(vorticityProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    glUniform1i(vorticityProgram.uniforms["uCurl"], curl.attach(1));
+    glUniform1f(vorticityProgram.uniforms["curl"], config.CURL);
+    glUniform1f(vorticityProgram.uniforms["dt"], dt);
+    blit(velocity.getWrite().bufferID);
+    velocity.swap();
 
-//     // divergenceProgram.bind();
-//     // glUniform2f(divergenceProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-//     // glUniform1i(divergenceProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-//     // blit(divergence.bufferID);
+    divergenceProgram.bind();
+    glUniform2f(divergenceProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    glUniform1i(divergenceProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    blit(divergence.bufferID);
+    
+    clearProgram.bind();
+    glUniform1i(clearProgram.uniforms["uTexture"], pressure.getRead().attach(0));
+    glUniform1f(clearProgram.uniforms["value"], config.PRESSURE_DISSIPATION);
+    blit(pressure.getWrite().bufferID);
+    pressure.swap();
 
-//     // clearProgram.bind();
-//     // glUniform1i(clearProgram.uniforms["uTexture"], pressure.getRead().attach(0));
-//     // glUniform1f(clearProgram.uniforms["value"], config.PRESSURE_DISSIPATION);
-//     // blit(pressure.getWrite().bufferID);
-//     // pressure.swap();
+    pressureProgram.bind();
+    glUniform2f(pressureProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    glUniform1i(pressureProgram.uniforms["uDivergence"], divergence.attach(0));
+    for (int i = 0; i < config.PRESSURE_ITERATIONS; i++) {
+        glUniform1i(pressureProgram.uniforms["uPressure"], pressure.getRead().attach(1));
+        blit(pressure.getWrite().bufferID);
+        pressure.swap();
+    }
 
-//     // pressureProgram.bind();
-//     // glUniform2f(pressureProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-//     // glUniform1i(pressureProgram.uniforms["uDivergence"], divergence.attach(0));
-//     // for (int i = 0; i < config.PRESSURE_ITERATIONS; i++) {
-//     //     glUniform1i(pressureProgram.uniforms["uPressure"], pressure.getRead().attach(1));
-//     //     blit(pressure.getWrite().bufferID);
-//     //     pressure.swap();
-//     // }
+    gradienSubtractProgram.bind();
+    glUniform2f(gradienSubtractProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    glUniform1i(gradienSubtractProgram.uniforms["uPressure"], pressure.getRead().attach(0));
+    glUniform1i(gradienSubtractProgram.uniforms["uVelocity"], velocity.getRead().attach(1));
+    blit(velocity.getWrite().bufferID);
+    velocity.swap();
 
-//     // gradienSubtractProgram.bind();
-//     // glUniform2f(gradienSubtractProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-//     // glUniform1i(gradienSubtractProgram.uniforms["uPressure"], pressure.getRead().attach(0));
-//     // glUniform1i(gradienSubtractProgram.uniforms["uVelocity"], velocity.getRead().attach(1));
-//     // blit(velocity.getWrite().bufferID);
-//     // velocity.swap();
+    advectionProgram.bind();
+    glUniform2f(advectionProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    auto velocityId = velocity.getRead().attach(0);
+    glUniform1i(advectionProgram.uniforms["uVelocity"], velocityId);
+    glUniform1i(advectionProgram.uniforms["uSource"], velocityId);
+    glUniform1f(advectionProgram.uniforms["dt"], dt);
+    glUniform1f(advectionProgram.uniforms["dissipation"], config.VELOCITY_DISSIPATION);
+    blit(velocity.getWrite().bufferID);
+    velocity.swap();
 
-//     // advectionProgram.bind();
-//     // glUniform2f(advectionProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-//     // auto velocityId = velocity.getRead().attach(0);
-//     // glUniform1i(advectionProgram.uniforms["uVelocity"], velocityId);
-//     // glUniform1i(advectionProgram.uniforms["uSource"], velocityId);
-//     // glUniform1f(advectionProgram.uniforms["dt"], dt);
-//     // glUniform1f(advectionProgram.uniforms["dissipation"], config.VELOCITY_DISSIPATION);
-//     // blit(velocity.getWrite().bufferID);
-//     // velocity.swap();
+    glViewport(0, 0, dyeWidth, dyeHeight);
 
-//     // glViewport(0, 0, dyeWidth, dyeHeight);
-
-//     // glUniform1i(advectionProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-//     // glUniform1i(advectionProgram.uniforms["uSource"], density.getRead().attach(1));
-//     // glUniform1f(advectionProgram.uniforms["dissipation"], config.DENSITY_DISSIPATION);
-//     // blit(density.getWrite().bufferID);
-//     // density.swap();
-// }
-
+    glUniform1i(advectionProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    glUniform1i(advectionProgram.uniforms["uSource"], density.getRead().attach(1));
+    glUniform1f(advectionProgram.uniforms["dissipation"], config.DENSITY_DISSIPATION);
+    blit(density.getWrite().bufferID);
+    density.swap();
+}
 void render()
 {
     glDisable(GL_BLEND);
@@ -537,12 +535,14 @@ void render()
     glViewport(0, 0, width, height);
     displayProgram.bind();
     glUniform1f(displayProgram.uniforms["uTexture"], density.getRead().attach(0));
+    //glUniform1f(displayProgram.uniforms["uTexture"], velocity.getRead().attach(0));
+    //glUniform1f(displayProgram.uniforms["uTexture"], divergence.attach(0));
     blit(0);
 }
 
 void update()
 {
-    //   step(0.016);
+    step(0.016);
     render();
 }
 
@@ -565,7 +565,7 @@ void splat(int x, int y, float dx, float dy, glm::vec3 color)
     density.swap();
 }
 
-glm::vec3 HSVtoRGB(int h, int s, int v)
+glm::vec3 HSVtoRGB(float h, float s, float v)
 {
     int r, g, b, i, f, p, q, t;
     i = std::floor(h * 6);
@@ -668,7 +668,7 @@ int main(void)
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
     // Dark blue background
-    glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     clearProgram = GLProgram(baseVertexShader, clearShader);
     splatProgram = GLProgram(baseVertexShader, splatShader);
@@ -682,10 +682,12 @@ int main(void)
 
     initFramebuffers();
     multipleSplats(10 + 5);
+
     do
     {
 
         // Clear the screen
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT);
 
         update();
