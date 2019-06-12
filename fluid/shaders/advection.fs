@@ -12,13 +12,9 @@ uniform float dissipation;
 uniform vec2 st;
 
 void main(){
-    vec2 fromCoord = uv - dt * st * texture(velocity, uv).xy;
-    vec4 new = 0.99f * texture(quantity, fromCoord);
-    color = new.xyz;
-    //if (texture(velocity, uv) == texture(quantity, uv))
-    //    color = vec3(texture(velocity, uv).xy,0);
-    //else
-    //    color = vec3(0);
-    //color = texture(quantity, uv).xyz;
-    //color = texture(quantity, uv).xyz;
+    //vec2 fromCoord = uv - dt * texture(velocity, uv).xy * st;
+    //color =vec3(dissipation * texture(quantity, fromCoord).xy, 0);
+    vec2 coord = uv - dt * texture(velocity, uv).xy * st;
+    vec4 newcolor = 1.0f * texture(quantity, coord);
+    color = newcolor.xyz;
 }

@@ -28,5 +28,5 @@ void main(){
     //color = vec3(t-b);
     //color = vec3(uv_t-uv_b, 0);
     //color = vec3(st*1000,0);
-    //color = vec3(c,0);
+    //color = vec3(uv,0);
 }

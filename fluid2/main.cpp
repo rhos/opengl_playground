@@ -125,7 +125,7 @@ const std::string advectionShader = R"(
     uniform float dissipation;
     void main () {
         vec2 coord = vUv - dt * texture(uVelocity, vUv).xy * texelSize;
-        color = dissipation * texture(uSource, coord);
+        color = 1.0f * texture(uSource, coord);
         color.a = 1.0;
     }
 )";
@@ -469,46 +469,46 @@ void step(float dt)
     glDisable(GL_BLEND);
     glViewport(0, 0, simWidth, simHeight);
 
-    curlProgram.bind();
-    glUniform2f(curlProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-    glUniform1i(curlProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-    blit(curl.bufferID);
+    // curlProgram.bind();
+    // glUniform2f(curlProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    // glUniform1i(curlProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    // blit(curl.bufferID);
 
-    vorticityProgram.bind();
-    glUniform2f(vorticityProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-    glUniform1i(vorticityProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-    glUniform1i(vorticityProgram.uniforms["uCurl"], curl.attach(1));
-    glUniform1f(vorticityProgram.uniforms["curl"], config.CURL);
-    glUniform1f(vorticityProgram.uniforms["dt"], dt);
-    blit(velocity.getWrite().bufferID);
-    velocity.swap();
+    // vorticityProgram.bind();
+    // glUniform2f(vorticityProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    // glUniform1i(vorticityProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    // glUniform1i(vorticityProgram.uniforms["uCurl"], curl.attach(1));
+    // glUniform1f(vorticityProgram.uniforms["curl"], config.CURL);
+    // glUniform1f(vorticityProgram.uniforms["dt"], dt);
+    // blit(velocity.getWrite().bufferID);
+    // velocity.swap();
 
-    divergenceProgram.bind();
-    glUniform2f(divergenceProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-    glUniform1i(divergenceProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-    blit(divergence.bufferID);
+    // divergenceProgram.bind();
+    // glUniform2f(divergenceProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    // glUniform1i(divergenceProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    // blit(divergence.bufferID);
     
-    clearProgram.bind();
-    glUniform1i(clearProgram.uniforms["uTexture"], pressure.getRead().attach(0));
-    glUniform1f(clearProgram.uniforms["value"], config.PRESSURE_DISSIPATION);
-    blit(pressure.getWrite().bufferID);
-    pressure.swap();
+    // clearProgram.bind();
+    // glUniform1i(clearProgram.uniforms["uTexture"], pressure.getRead().attach(0));
+    // glUniform1f(clearProgram.uniforms["value"], config.PRESSURE_DISSIPATION);
+    // blit(pressure.getWrite().bufferID);
+    // pressure.swap();
 
-    pressureProgram.bind();
-    glUniform2f(pressureProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-    glUniform1i(pressureProgram.uniforms["uDivergence"], divergence.attach(0));
-    for (int i = 0; i < config.PRESSURE_ITERATIONS; i++) {
-        glUniform1i(pressureProgram.uniforms["uPressure"], pressure.getRead().attach(1));
-        blit(pressure.getWrite().bufferID);
-        pressure.swap();
-    }
+    // pressureProgram.bind();
+    // glUniform2f(pressureProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    // glUniform1i(pressureProgram.uniforms["uDivergence"], divergence.attach(0));
+    // for (int i = 0; i < config.PRESSURE_ITERATIONS; i++) {
+    //     glUniform1i(pressureProgram.uniforms["uPressure"], pressure.getRead().attach(1));
+    //     blit(pressure.getWrite().bufferID);
+    //     pressure.swap();
+    // }
 
-    gradienSubtractProgram.bind();
-    glUniform2f(gradienSubtractProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
-    glUniform1i(gradienSubtractProgram.uniforms["uPressure"], pressure.getRead().attach(0));
-    glUniform1i(gradienSubtractProgram.uniforms["uVelocity"], velocity.getRead().attach(1));
-    blit(velocity.getWrite().bufferID);
-    velocity.swap();
+    // gradienSubtractProgram.bind();
+    // glUniform2f(gradienSubtractProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
+    // glUniform1i(gradienSubtractProgram.uniforms["uPressure"], pressure.getRead().attach(0));
+    // glUniform1i(gradienSubtractProgram.uniforms["uVelocity"], velocity.getRead().attach(1));
+    // blit(velocity.getWrite().bufferID);
+    // velocity.swap();
 
     advectionProgram.bind();
     glUniform2f(advectionProgram.uniforms["texelSize"], 1.0 / simWidth, 1.0 / simHeight);
@@ -520,13 +520,13 @@ void step(float dt)
     blit(velocity.getWrite().bufferID);
     velocity.swap();
 
-    glViewport(0, 0, dyeWidth, dyeHeight);
+    // glViewport(0, 0, dyeWidth, dyeHeight);
 
-    glUniform1i(advectionProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
-    glUniform1i(advectionProgram.uniforms["uSource"], density.getRead().attach(1));
-    glUniform1f(advectionProgram.uniforms["dissipation"], config.DENSITY_DISSIPATION);
-    blit(density.getWrite().bufferID);
-    density.swap();
+    // glUniform1i(advectionProgram.uniforms["uVelocity"], velocity.getRead().attach(0));
+    // glUniform1i(advectionProgram.uniforms["uSource"], density.getRead().attach(1));
+    // glUniform1f(advectionProgram.uniforms["dissipation"], config.DENSITY_DISSIPATION);
+    // blit(density.getWrite().bufferID);
+    // density.swap();
 }
 void render()
 {
@@ -534,9 +534,9 @@ void render()
 
     glViewport(0, 0, width, height);
     displayProgram.bind();
-    glUniform1f(displayProgram.uniforms["uTexture"], density.getRead().attach(0));
-    //glUniform1f(displayProgram.uniforms["uTexture"], velocity.getRead().attach(0));
-    //glUniform1f(displayProgram.uniforms["uTexture"], divergence.attach(0));
+    //glUniform1f(displayProgram.uniforms["uTexture"], density.getRead().attach(0));
+    glUniform1f(displayProgram.uniforms["uTexture"], velocity.getRead().attach(0));
+    // glUniform1f(displayProgram.uniforms["uTexture"], divergence.attach(0));
     blit(0);
 }
 
@@ -558,11 +558,11 @@ void splat(int x, int y, float dx, float dy, glm::vec3 color)
     blit(velocity.getWrite().bufferID);
     velocity.swap();
 
-    glViewport(0, 0, dyeWidth, dyeHeight);
-    glUniform1i(splatProgram.uniforms["uTarget"], density.getRead().attach(0));
-    glUniform3f(splatProgram.uniforms["color"], color.r, color.g, color.b);
-    blit(density.getWrite().bufferID);
-    density.swap();
+    // glViewport(0, 0, dyeWidth, dyeHeight);
+    // glUniform1i(splatProgram.uniforms["uTarget"], density.getRead().attach(0));
+    // glUniform3f(splatProgram.uniforms["color"], color.r, color.g, color.b);
+    // blit(density.getWrite().bufferID);
+    // density.swap();
 }
 
 glm::vec3 HSVtoRGB(float h, float s, float v)
@@ -629,6 +629,8 @@ void multipleSplats(int amount)
 
 int main(void)
 {
+    int seed = 131;
+    srand(seed);
 
     if (!glfwInit())
     {
@@ -644,10 +646,10 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Open a window and create its OpenGL context
-    auto* window = glfwCreateWindow(1024, 768, "Tutorial 02 - Red triangle", NULL, NULL);
+    auto* window = glfwCreateWindow(1024, 768, "Fluid 2", NULL, NULL);
     if (window == NULL)
     {
-        fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n");
+        fprintf(stderr, "Failed to open GLFW window.\n");
         getchar();
         glfwTerminate();
         return -1;
@@ -681,8 +683,8 @@ int main(void)
     displayProgram = GLProgram(baseVertexShader, displayShader);
 
     initFramebuffers();
-    multipleSplats(10 + 5);
-
+    multipleSplats(15);
+    //multipleSplats(1);
     do
     {
 

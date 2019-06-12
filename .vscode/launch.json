@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/render2texture/render2texture.exe",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/render2texture",
             "environment": [],
             "externalConsole": true
@@ -21,7 +21,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/normal_mapping/normal_mapping.exe",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/normal_mapping",
             "environment": [],
             "externalConsole": true
@@ -32,7 +32,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/basic_shading/basic_shading.exe",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/basic_shading",
             "environment": [],
             "externalConsole": true
@@ -43,7 +43,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/fluid/fluid.exe",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/fluid",
             "environment": [],
             "externalConsole": true
@@ -54,7 +54,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/fluid2/fluid2.exe",
             "args": [],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/fluid2",
             "environment": [],
             "externalConsole": true
