@@ -230,7 +230,7 @@ struct Fluid
     int dHeight;
 
     float dxscale = 30.0f;
-    float quantityDissipation = 1.0f;
+    float quantityDissipation = 0.97f;
     float velocityDissipation = 0.98f;
     float pressureDissipation = 0.8f;
     int jacobiIterations = 20;
@@ -256,7 +256,7 @@ struct Fluid
                                                                         divergenceTarget(fluidGridW, fluidGridH, GL_RG32F, GL_RG, GL_NEAREST),
                                                                         pressureTarget(fWidth, fHeight, GL_RG32F, GL_RG, GL_NEAREST),
                                                                         vorticityTarget(fWidth, fHeight, GL_RG32F, GL_RG, GL_NEAREST),
-                                                                        quantityTarget(dWidth, dWidth, GL_RGBA32F, GL_RGBA, GL_LINEAR),
+                                                                        quantityTarget(dWidth, dHeight, GL_RGB32F, GL_RGB, GL_LINEAR),
                                                                         advectionShader("shaders/vector.vs", "shaders/advection.fs"),
                                                                         divergenceShader("shaders/field.vs", "shaders/divergence.fs"),
                                                                         vorticityShader("shaders/field.vs", "shaders/vorticity.fs"),
@@ -274,43 +274,43 @@ struct Fluid
         glViewport(0, 0, fWidth, fHeight);
         glm::vec2 st(1.0f / fWidth, 1.0f / fHeight);
 
-        // glUseProgram(vorticityShader.id);
-        // vorticityShader.setUniform("st", st);
-        // vorticityShader.setUniform("velocity", velocityTarget.bind(0));
-        // stage(vorticityTarget);
+        glUseProgram(vorticityShader.id);
+        vorticityShader.setUniform("st", st);
+        vorticityShader.setUniform("velocity", velocityTarget.bind(0));
+        stage(vorticityTarget);
 
-        // glUseProgram(vorticityForceShader.id);
-        // vorticityForceShader.setUniform("st", st);
-        // vorticityForceShader.setUniform("velocity", velocityTarget.bind(0));
-        // vorticityForceShader.setUniform("vorticity", vorticityTarget.bind(1));
-        // vorticityForceShader.setUniform("dxscale", dxscale);
-        // vorticityForceShader.setUniform("dt", dt);
-        // stage(velocityTarget);
+        glUseProgram(vorticityForceShader.id);
+        vorticityForceShader.setUniform("st", st);
+        vorticityForceShader.setUniform("velocity", velocityTarget.bind(0));
+        vorticityForceShader.setUniform("vorticity", vorticityTarget.bind(1));
+        vorticityForceShader.setUniform("dxscale", dxscale);
+        vorticityForceShader.setUniform("dt", dt);
+        stage(velocityTarget);
 
-        // glUseProgram(divergenceShader.id);
-        // divergenceShader.setUniform("st", st);
-        // divergenceShader.setUniform("velocity", velocityTarget.bind(0));
-        // stage(divergenceTarget);
+        glUseProgram(divergenceShader.id);
+        divergenceShader.setUniform("st", st);
+        divergenceShader.setUniform("velocity", velocityTarget.bind(0));
+        stage(divergenceTarget);
 
-        // glUseProgram(multiplyShader.id);
-        // multiplyShader.setUniform("val", pressureDissipation);
-        // multiplyShader.setUniform("field", pressureTarget.bind(0));
-        // stage(pressureTarget);
+        glUseProgram(multiplyShader.id);
+        multiplyShader.setUniform("val", pressureDissipation);
+        multiplyShader.setUniform("field", pressureTarget.bind(0));
+        stage(pressureTarget);
 
-        // glUseProgram(pressureShader.id);
-        // pressureShader.setUniform("st", st);
-        // pressureShader.setUniform("divergence", divergenceTarget.bind(0));
-        // for (int i = 0; i < jacobiIterations; ++i)
-        // {
-        //     pressureShader.setUniform("pressure", pressureTarget.bind(1));
-        //     stage(pressureTarget);
-        // }
+        glUseProgram(pressureShader.id);
+        pressureShader.setUniform("st", st);
+        pressureShader.setUniform("divergence", divergenceTarget.bind(0));
+        for (int i = 0; i < jacobiIterations; ++i)
+        {
+            pressureShader.setUniform("pressure", pressureTarget.bind(1));
+            stage(pressureTarget);
+        }
 
-        // glUseProgram(pressureGradientShader.id);
-        // pressureGradientShader.setUniform("st", st);
-        // pressureGradientShader.setUniform("pressure", pressureTarget.bind(0));
-        // pressureGradientShader.setUniform("velocity", velocityTarget.bind(1));
-        // stage(velocityTarget);
+        glUseProgram(pressureGradientShader.id);
+        pressureGradientShader.setUniform("st", st);
+        pressureGradientShader.setUniform("pressure", pressureTarget.bind(0));
+        pressureGradientShader.setUniform("velocity", velocityTarget.bind(1));
+        stage(velocityTarget);
 
         glUseProgram(advectionShader.id);
         advectionShader.setUniform("st", st);
@@ -321,16 +321,15 @@ struct Fluid
         advectionShader.setUniform("dissipation", velocityDissipation);
         stage(velocityTarget);
 
-        // glViewport(0, 0, dWidth, dHeight);
-        // glm::vec2 dst(1.0 / dWidth, 1.0 / dHeight);
+        glViewport(0, 0, dWidth, dHeight);
+        glm::vec2 dst(1.0 / dWidth, 1.0 / dHeight);
 
-        // glUseProgram(advectionShader.id);
-        // advectionShader.setUniform("st", dst);
-        // advectionShader.setUniform("velocity", velocityTarget.bind(0));
-        // advectionShader.setUniform("quantity", quantityTarget.bind(1));
-        // advectionShader.setUniform("dt", dt);
-        // advectionShader.setUniform("dissipation", quantityDissipation);
-        // stage(quantityTarget);
+        glUseProgram(advectionShader.id);
+        advectionShader.setUniform("velocity", velocityTarget.bind(0));
+        advectionShader.setUniform("quantity", quantityTarget.bind(1));
+        advectionShader.setUniform("dt", dt);
+        advectionShader.setUniform("dissipation", quantityDissipation);
+        stage(quantityTarget);
     }
 
     void disturb(float x, float y, float dx, float dy, glm::vec3 color)
@@ -470,8 +469,10 @@ int main(void)
             lastTime += 1.0;
         }
 
-        fluid.pipeline(0.0016f);
-        renderTexture(fluid.velocityTarget.texture);
+        fluid.pipeline(0.016f);
+        renderTexture(fluid.quantityTarget.texture);
+        //renderTexture(fluid.vorticityTarget.texture);
+        //renderTexture(fluid.velocityTarget.texture);
         //renderTexture(bg);
 
         glfwSwapInterval(1);

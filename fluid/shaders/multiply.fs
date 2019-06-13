@@ -7,5 +7,6 @@ uniform sampler2D field;
 uniform float val;
 
 void main(){
-    color = texture(field, uv).xyz * val;
+    vec3 initial = texture(field, uv).xyz;
+    color = initial * val;
 }
