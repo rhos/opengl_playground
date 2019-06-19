@@ -3,6 +3,7 @@
 layout (location = 0) out vec3 color;
 
 uniform sampler2D velocity;
+uniform sampler2D border;
 
 uniform vec2 st;
 

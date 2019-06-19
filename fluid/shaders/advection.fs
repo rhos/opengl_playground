@@ -1,7 +1,4 @@
 #version 410 core
-precision highp float;
-precision highp sampler2D;
-
 layout (location = 0) out vec3 color;
 
 in vec2 uv;

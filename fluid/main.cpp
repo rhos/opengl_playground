@@ -15,12 +15,15 @@
 
 #include <common/shader.hpp>
 #include <common/texture.hpp>
+#include <common/controls.hpp>
 
 const int gWidth = 1024;
 const int gHeight = 768;
 const int fluidGrid = 128;
 const int dyeGrid = 512;
 
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+void mouseCursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
 GLFWwindow* initWindow(int width, int height)
 {
     // Initialise GLFW
@@ -60,6 +63,8 @@ GLFWwindow* initWindow(int width, int height)
 
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetCursorPosCallback(window, mouseCursorPositionCallback);
     return window;
 }
 
@@ -230,7 +235,7 @@ struct Fluid
     int dHeight;
 
     float dxscale = 30.0f;
-    float quantityDissipation = 0.97f;
+    float quantityDissipation = 0.99f;
     float velocityDissipation = 0.98f;
     float pressureDissipation = 0.8f;
     int jacobiIterations = 20;
@@ -251,6 +256,8 @@ struct Fluid
 
     Shader disturbShader;
 
+    GLuint border;
+
     Fluid(int fluidGridW, int fluidGridH, int dyeGridW, int dyeGridH) : fWidth(fluidGridW), fHeight(fluidGridH), dWidth(dyeGridW), dHeight(dyeGridH),
                                                                         velocityTarget(fluidGridW, fluidGridH, GL_RG32F, GL_RG, GL_LINEAR),
                                                                         divergenceTarget(fluidGridW, fluidGridH, GL_RG32F, GL_RG, GL_NEAREST),
@@ -266,6 +273,7 @@ struct Fluid
                                                                         multiplyShader("shaders/vector.vs", "shaders/multiply.fs"),
                                                                         disturbShader("shaders/vector.vs", "shaders/disturb.fs")
     {
+        border = loadDDS("data/bg.dds");
     }
 
     void pipeline(float dt)
@@ -290,6 +298,9 @@ struct Fluid
         glUseProgram(divergenceShader.id);
         divergenceShader.setUniform("st", st);
         divergenceShader.setUniform("velocity", velocityTarget.bind(0));
+        glActiveTexture(GL_TEXTURE0 + (GLuint)1);
+        glBindTexture(GL_TEXTURE_2D, border);
+        divergenceShader.setUniform("border", (GLuint)1);
         stage(divergenceTarget);
 
         glUseProgram(multiplyShader.id);
@@ -329,6 +340,7 @@ struct Fluid
         advectionShader.setUniform("quantity", quantityTarget.bind(1));
         advectionShader.setUniform("dt", dt);
         advectionShader.setUniform("dissipation", quantityDissipation);
+
         stage(quantityTarget);
     }
 
@@ -439,6 +451,29 @@ void renderTexture(GLuint textureID)
     drawQuad();
 }
 
+Fluid* fluidPtr;
+bool dragging = false;
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        if(action == GLFW_PRESS)
+        {
+            dragging = true;
+        }
+        else //Release
+        {
+            dragging = false;
+        }
+    }
+}
+void mouseCursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (dragging)
+    {
+        fluidPtr->randomDisturb(1);
+    }
+}
 int main(void)
 {
     int seed = 131;
@@ -455,6 +490,7 @@ int main(void)
 
     Fluid fluid{(int)(fluidGrid * (float)gWidth / (float)gHeight), fluidGrid, (int)(dyeGrid * (float)gWidth / (float)gHeight), dyeGrid};
     fluid.randomDisturb(15);
+    fluidPtr = &fluid;
 
     auto lastTime = glfwGetTime();
     int nbFrames = 0;
